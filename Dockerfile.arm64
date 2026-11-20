@@ -1,0 +1,17 @@
+FROM --platform=linux/arm64 rust:1.100-bookworm AS build
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+       clang libclang-dev libopencore-amrnb-dev libssl-dev pkg-config \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+COPY Cargo.toml Cargo.lock build.rs ./
+COPY src ./src
+RUN cargo build --locked --release --target aarch64-unknown-linux-gnu
+
+RUN install -Dm755 /app/target/aarch64-unknown-linux-gnu/release/jiofiber-sip-proxy /out/jiofiber-sip-proxy \
+    && install -Dm755 /usr/lib/aarch64-linux-gnu/libopencore-amrnb.so.0 /out/libopencore-amrnb.so.0
+
+FROM scratch
+COPY --from=build /out/ /

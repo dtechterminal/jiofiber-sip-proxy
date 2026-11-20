@@ -1,0 +1,20 @@
+[package]
+name = "jiofiber-sip-proxy"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+anyhow = "1"
+hickory-resolver = "0.24"
+md-5 = "0.10"
+native-tls = "0.2"
+quick-xml = "0.38"
+reqwest = { version = "0.12", default-features = false, features = ["rustls-tls"] }
+time = { version = "0.3", features = ["formatting"] }
+tokio = { version = "1", features = ["fs", "io-util", "macros", "net", "rt-multi-thread", "signal", "sync", "time"] }
+tokio-native-tls = "0.3"
+uuid = { version = "1", features = ["v4"] }
+
+[build-dependencies]
+bindgen = "0.72"
+pkg-config = "0.3"

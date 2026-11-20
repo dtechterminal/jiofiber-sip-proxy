@@ -1,0 +1,594 @@
+<title>JioFiber SIP Proxy Setup</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Space+Grotesk:wght@500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
+<!--ADMIN_TOKEN-->
+<style>
+  /* Layout: a guided setup wizard — discover from the ONT first, then confirm, then apply. */
+  :root {
+    --bg: #f4f6f8; --surface: #ffffff; --surface-2: #eceff3; --fg: #0f141a;
+    --muted: #5c6673; --faint: #8a94a2; --border: #d7dde4; --border-strong: #c2cad3;
+    --accent: #0d9488; --accent-ink: #0b7067; --accent-soft: #d6f1ec;
+    --danger: #c2410c; --danger-soft: #fbe6d9; --good: #0d9488;
+    --term-bg: #0c1119; --term-fg: #d4deea; --term-dim: #7a899b; --term-accent: #5eead4; --term-comment: #5f7a6f;
+    --radius: 14px;
+    --mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+    --sans: "Inter", system-ui, sans-serif;
+    --display: "Space Grotesk", var(--sans);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #0a0e13; --surface: #121820; --surface-2: #1a222d; --fg: #e6edf4;
+      --muted: #9aa7b4; --faint: #6b7784; --border: #27313d; --border-strong: #35414f;
+      --accent: #2dd4bf; --accent-ink: #5eead4; --accent-soft: #0f2b28;
+      --danger: #fb923c; --danger-soft: #35210f; --good: #2dd4bf; color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #0a0e13; --surface: #121820; --surface-2: #1a222d; --fg: #e6edf4;
+    --muted: #9aa7b4; --faint: #6b7784; --border: #27313d; --border-strong: #35414f;
+    --accent: #2dd4bf; --accent-ink: #5eead4; --accent-soft: #0f2b28;
+    --danger: #fb923c; --danger-soft: #35210f; --good: #2dd4bf; color-scheme: dark;
+  }
+
+  * { box-sizing: border-box; }
+  body { background: var(--bg); color: var(--fg); font-family: var(--sans); line-height: 1.55; }
+  .app { min-height: 100%; max-width: 760px; margin: 0 auto;
+    padding-left: max(18px, env(safe-area-inset-left, 0px)); padding-right: max(18px, env(safe-area-inset-right, 0px));
+    padding-block: 26px 40px; display: flex; flex-direction: column; gap: 20px; }
+  h1, h2, h3 { font-family: var(--display); line-height: 1.15; text-wrap: balance; margin: 0; }
+  code { font-family: var(--mono); font-size: 0.86em; }
+  a { color: var(--accent-ink); text-underline-offset: 2px; }
+
+  .bar { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+  .brand { display: flex; align-items: center; gap: 10px; }
+  .brand .mark { width: 30px; height: 30px; border-radius: 8px; background: var(--accent); display: grid; place-items: center; color: #04140f; flex: none; }
+  .brand .mark svg { width: 17px; height: 17px; }
+  .brand .t { font-family: var(--display); font-weight: 600; font-size: 15px; letter-spacing: -0.01em; }
+  .brand .t small { display: block; font-family: var(--mono); font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--faint); font-weight: 400; }
+  .theme-btn { font-family: var(--mono); font-size: 12px; color: var(--muted); background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 7px 11px; cursor: pointer; }
+  .theme-btn:hover { border-color: var(--border-strong); color: var(--fg); }
+
+  .progress { display: flex; flex-direction: column; gap: 9px; }
+  .progress .meta { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; }
+  .progress .step-n { font-family: var(--mono); font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--accent-ink); }
+  .progress .step-t { font-family: var(--display); font-weight: 600; font-size: 13.5px; color: var(--muted); }
+  .track { height: 5px; background: var(--surface-2); border-radius: 999px; overflow: hidden; }
+  .track .fill { height: 100%; background: var(--accent); border-radius: 999px; width: 0; transition: width .32s cubic-bezier(.4,0,.2,1); }
+  .dots { display: flex; gap: 6px; flex-wrap: wrap; }
+  .dots button { width: 9px; height: 9px; padding: 0; border-radius: 50%; border: none; background: var(--border-strong); cursor: pointer; transition: background .2s, transform .2s; }
+  .dots button.done { background: var(--accent); }
+  .dots button.active { background: var(--accent); transform: scale(1.5); }
+  .dots button:disabled { cursor: default; }
+
+  .card { border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); padding: 26px 24px; }
+  .step { animation: slide .34s cubic-bezier(.4,0,.2,1); }
+  @keyframes slide { from { opacity: 0; transform: translateX(14px); } to { opacity: 1; transform: none; } }
+  .step[data-dir="back"] { animation-name: slideBack; }
+  @keyframes slideBack { from { opacity: 0; transform: translateX(-14px); } to { opacity: 1; transform: none; } }
+  @media (prefers-reduced-motion: reduce) { .step { animation: none; } .track .fill, .dots button { transition: none; } }
+
+  .step .eyebrow { font-family: var(--mono); font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--accent-ink); margin: 0 0 9px; }
+  .step h2 { font-size: 24px; font-weight: 700; letter-spacing: -0.015em; }
+  .step .sub { color: var(--muted); font-size: 14.5px; margin: 9px 0 0; max-width: 56ch; }
+  .step .body { margin-top: 20px; display: flex; flex-direction: column; gap: 15px; }
+
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .field { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
+  .field.wide { grid-column: 1 / -1; }
+  label .name { font-weight: 500; font-size: 13.5px; }
+  label .env { font-family: var(--mono); font-size: 11px; color: var(--faint); margin-left: 7px; }
+  label .reqmark { color: var(--danger); margin-left: 3px; }
+  .hint { font-size: 11.5px; color: var(--faint); }
+  input[type="text"], input[type="password"] { font-family: var(--mono); font-size: 13px; color: var(--fg);
+    background: var(--bg); border: 1px solid var(--border); border-radius: 9px; padding: 10px 12px; width: 100%; min-width: 0; }
+  input:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; border-color: var(--accent); }
+  input.missing { border-color: var(--danger); background: var(--danger-soft); }
+
+  .switch-row { display: flex; align-items: flex-start; gap: 13px; padding: 15px; border: 1px solid var(--border); border-radius: 11px; background: var(--surface-2); }
+  .switch { position: relative; flex: none; width: 44px; height: 25px; margin-top: 1px; }
+  .switch input { position: absolute; opacity: 0; width: 100%; height: 100%; margin: 0; cursor: pointer; }
+  .switch .track2 { position: absolute; inset: 0; background: var(--surface); border: 1px solid var(--border-strong); border-radius: 999px; transition: background .15s; }
+  .switch .track2::after { content: ""; position: absolute; top: 3px; left: 3px; width: 17px; height: 17px; border-radius: 50%; background: var(--faint); transition: transform .15s, background .15s; }
+  .switch input:checked + .track2 { background: var(--accent); border-color: var(--accent); }
+  .switch input:checked + .track2::after { transform: translateX(19px); background: #fff; }
+  .switch input:focus-visible + .track2 { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .switch-label .name { font-family: var(--display); font-weight: 600; font-size: 15px; }
+  .switch-label .d { font-size: 13px; color: var(--muted); margin-top: 2px; }
+  label.check { display: flex; align-items: center; gap: 10px; font-size: 13.5px; cursor: pointer; padding: 4px 0; }
+  label.check input { width: 16px; height: 16px; accent-color: var(--accent); flex: none; }
+  label.check code { color: var(--accent-ink); }
+
+  .callout { font-size: 13px; color: var(--muted); background: var(--accent-soft); border-radius: 10px; padding: 12px 14px; }
+  .callout b { color: var(--accent-ink); }
+  .callout.warn { background: var(--danger-soft); } .callout.warn b { color: var(--danger); }
+  .note-local { display: inline-flex; align-items: center; gap: 8px; font-size: 12.5px; color: var(--muted); }
+  .note-local .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 0 4px var(--accent-soft); flex: none; }
+
+  .flow { display: flex; align-items: stretch; gap: 10px; flex-wrap: wrap; margin-top: 4px; }
+  .flow .node { flex: 1 1 170px; min-width: 0; border: 1px solid var(--border); background: var(--bg); border-radius: 11px; padding: 12px 14px; }
+  .flow .node .k { font-family: var(--mono); font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--faint); }
+  .flow .node .v { font-family: var(--display); font-weight: 600; font-size: 14px; margin-top: 3px; }
+  .flow .node .d { font-size: 12px; color: var(--muted); margin-top: 3px; }
+  .flow .node.mid { border-color: var(--accent); }
+  .flow .arrow { align-self: center; color: var(--accent); font-weight: 700; flex: none; }
+
+  .discover-box { border: 1px dashed var(--border-strong); border-radius: 11px; padding: 14px; display: flex; flex-direction: column; gap: 11px; }
+  .found { display: flex; flex-direction: column; gap: 7px; }
+  .found .row { display: flex; align-items: center; gap: 9px; font-size: 13px; }
+  .found .row .ic { width: 18px; height: 18px; border-radius: 50%; flex: none; display: grid; place-items: center; font-size: 11px; font-weight: 700; }
+  .found .row.ok .ic { background: var(--accent-soft); color: var(--accent-ink); }
+  .found .row.no .ic { background: var(--danger-soft); color: var(--danger); }
+  .found .row .lab { color: var(--muted); } .found .row .val { font-family: var(--mono); color: var(--fg); }
+  .scan-status { font-size: 14px; }
+  .scan-status .row { display: flex; align-items: center; gap: 10px; }
+  .scan-status .row .ic { width: 18px; height: 18px; border-radius: 50%; flex: none; display: grid; place-items: center; font-size: 11px; font-weight: 700; }
+  .scan-status .row.ok .ic { background: var(--accent-soft); color: var(--accent-ink); }
+  .scan-status .row.no .ic { background: var(--danger-soft); color: var(--danger); }
+  .scan-status .lab { color: var(--fg); }
+  .scan-status .spin { color: var(--accent); }
+  .action-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 12px; }
+  .linklike { background: none; border: none; padding: 0; margin-left: 6px; color: var(--accent-ink); font: inherit; font-size: 13px; cursor: pointer; text-decoration: underline; text-underline-offset: 2px; }
+  #manualMsg { margin-top: 10px; }
+
+  .terminal { background: var(--term-bg); border: 1px solid var(--border-strong); border-radius: 12px; overflow: hidden; color-scheme: dark; }
+  .term-head { display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-bottom: 1px solid #1e2834; }
+  .term-head .fname { font-family: var(--mono); font-size: 12.5px; color: var(--term-fg); }
+  .term-head .lights { display: flex; gap: 6px; }
+  .term-head .lights i { width: 10px; height: 10px; border-radius: 50%; display: block; }
+  .l1 { background: #ff5f57; } .l2 { background: #febc2e; } .l3 { background: #28c840; }
+  .term-head .status { margin-left: auto; font-family: var(--mono); font-size: 11px; padding: 3px 9px; border-radius: 999px; }
+  .status.ok { background: rgba(94,234,212,.14); color: var(--term-accent); }
+  .status.warn { background: rgba(251,146,60,.16); color: #fdba74; }
+  pre.term-body { margin: 0; padding: 15px 16px; font-family: var(--mono); font-size: 12.5px; line-height: 1.7; color: var(--term-fg); overflow-x: auto; white-space: pre; max-height: 40vh; }
+  .term-body .c { color: var(--term-comment); } .term-body .k { color: var(--term-accent); } .term-body .blank { display: block; height: 0.6em; }
+
+  details.acc { border: 1px solid var(--border); border-radius: 10px; background: var(--surface); }
+  details.acc + details.acc { margin-top: 8px; }
+  details.acc > summary { cursor: pointer; list-style: none; padding: 12px 15px; font-family: var(--display); font-weight: 600; font-size: 13.5px; display: flex; align-items: center; gap: 9px; }
+  details.acc > summary::-webkit-details-marker { display: none; }
+  details.acc > summary .chev { margin-left: auto; color: var(--faint); transition: transform .15s; }
+  details.acc[open] > summary .chev { transform: rotate(90deg); }
+  details.acc .acc-body { padding: 0 15px 15px; font-size: 13px; color: var(--muted); }
+  .codeblock { position: relative; background: var(--term-bg); border: 1px solid var(--border-strong); border-radius: 9px; color-scheme: dark; margin: 10px 0 2px; }
+  .codeblock pre { margin: 0; padding: 13px 14px; font-family: var(--mono); font-size: 12px; line-height: 1.7; color: var(--term-fg); overflow-x: auto; }
+  .codeblock pre .c { color: var(--term-comment); }
+  .codeblock .copy-sm { position: absolute; top: 8px; right: 8px; background: #182230; color: var(--term-dim); border: 1px solid #2a3644; border-radius: 7px; font-size: 11px; padding: 5px 9px; cursor: pointer; }
+  .codeblock .copy-sm:hover { color: var(--term-fg); }
+  ul.clean { margin: 8px 0; padding-left: 19px; } ul.clean li { margin: 5px 0; } ul.clean li b { color: var(--fg); }
+
+  .nav { display: flex; align-items: center; gap: 12px; }
+  .nav .spacer { flex: 1; }
+  .btn { font-family: var(--sans); font-weight: 500; font-size: 14px; border-radius: 10px; padding: 11px 20px; cursor: pointer; border: 1px solid transparent; display: inline-flex; align-items: center; gap: 8px; }
+  .btn:disabled { opacity: .5; cursor: not-allowed; }
+  .btn.primary { background: var(--accent); color: #04140f; border-color: var(--accent); }
+  .btn.primary:hover:not(:disabled) { background: var(--accent-ink); }
+  .btn.ghost { background: var(--surface); color: var(--fg); border-color: var(--border); }
+  .btn.ghost:hover:not(:disabled) { border-color: var(--border-strong); }
+  .btn.sm { font-size: 13px; padding: 9px 14px; }
+
+  .toast { position: fixed; left: 50%; bottom: calc(22px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%) translateY(14px); background: var(--fg); color: var(--bg); font-size: 13px; font-weight: 500; padding: 10px 18px; border-radius: 999px; opacity: 0; pointer-events: none; transition: opacity .18s, transform .18s; z-index: 50; }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+  .spin { width: 14px; height: 14px; border: 2px solid currentColor; border-right-color: transparent; border-radius: 50%; display: inline-block; animation: sp .7s linear infinite; }
+  @keyframes sp { to { transform: rotate(360deg); } }
+
+  @media (max-width: 480px) { .grid2 { grid-template-columns: 1fr; } .flow .arrow { display: none; } .card { padding: 22px 17px; } .step h2 { font-size: 21px; } }
+</style>
+
+<div class="app">
+  <div class="bar">
+    <div class="brand">
+      <span class="mark" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6.6 10.8a15 15 0 0 0 6.6 6.6l2.2-2.2a1 1 0 0 1 1-.24 11 11 0 0 0 3.5.56 1 1 0 0 1 1 1V20a1 1 0 0 1-1 1A17 17 0 0 1 3 4a1 1 0 0 1 1-1h3.3a1 1 0 0 1 1 1 11 11 0 0 0 .56 3.5 1 1 0 0 1-.24 1z"/></svg></span>
+      <div class="t">JioFiber SIP Proxy<small id="modeTag">Setup</small></div>
+    </div>
+    <button class="theme-btn" id="themeBtn" type="button" aria-label="Toggle colour theme">◐ Theme</button>
+  </div>
+
+  <div class="progress" aria-hidden="true">
+    <div class="meta"><span class="step-n" id="stepN">Step 1 of 7</span><span class="step-t" id="stepT">Welcome</span></div>
+    <div class="track"><div class="fill" id="fill"></div></div>
+    <div class="dots" id="dots"></div>
+  </div>
+
+  <form id="cfg" autocomplete="off" onsubmit="return false">
+    <div class="card">
+
+      <!-- 0 Welcome -->
+      <section class="step" data-title="Welcome" hidden>
+        <p class="eyebrow">Let's get your line talking</p>
+        <h2>Bring VoLTE to an ordinary SIP phone</h2>
+        <p class="sub">This proxy impersonates your JioFiber ONT to Jio's IMS core, so a plain SIP handset can place and take calls. Point it at your ONT and it reads what it needs — you type almost nothing.</p>
+        <div class="body">
+          <div class="flow">
+            <div class="node"><div class="k">Your handset</div><div class="v">SIP phone</div><div class="d">G.711 / UDP, on your LAN</div></div>
+            <div class="arrow">→</div>
+            <div class="node mid"><div class="k">This proxy</div><div class="v">jiofiber-sip-proxy</div><div class="d">Transcodes · provisions</div></div>
+            <div class="arrow">→</div>
+            <div class="node"><div class="k">Jio core</div><div class="v">IMS / VoLTE</div><div class="d">AMR-NB, TLS + IPv6</div></div>
+          </div>
+          <p class="note-local"><span class="dot"></span> <span id="modeNote">Everything stays in your browser — nothing you type is sent anywhere.</span></p>
+        </div>
+      </section>
+
+      <!-- 2 Find your ONT -->
+      <section class="step" data-title="Your ONT" data-validate="ont" hidden>
+        <p class="eyebrow">Step two · automatic</p>
+        <h2>Finding your ONT</h2>
+        <p class="sub">The proxy scans your network for the ONT, logs in, and reads the serial and TR-069 password off it — even when it's bridged. You usually type nothing here; if it can't find the device, you can point it at the address yourself.</p>
+        <div class="body">
+          <div class="scan-status" id="scanStatus" aria-live="polite"></div>
+          <div class="found" id="found" hidden></div>
+
+          <!-- manual fallback, revealed only when the scan can't find the ONT -->
+          <div id="manual" hidden>
+            <div class="callout warn" id="manualNote" style="margin-bottom:14px"></div>
+            <div class="grid2">
+              <div class="field">
+                <label for="ont_host"><span class="name">ONT address</span><span class="env">ONT_HOST</span></label>
+                <input type="text" id="ont_host" placeholder="192.168.0.51" spellcheck="false">
+              </div>
+              <div class="field">
+                <label for="ont_pass"><span class="name">Telnet password</span><span class="env">ONT_TELNET_PASSWORD</span></label>
+                <input type="password" id="ont_pass" placeholder="leave blank to try the known default" spellcheck="false">
+              </div>
+              <div class="field">
+                <label for="ont_user"><span class="name">Telnet user</span><span class="env">ONT_TELNET_USER</span></label>
+                <input type="text" id="ont_user" placeholder="root (default)" spellcheck="false">
+              </div>
+              <div class="field">
+                <label for="ont_port"><span class="name">Telnet port</span><span class="env">ONT_TELNET_PORT</span></label>
+                <input type="text" id="ont_port" value="23" spellcheck="false">
+              </div>
+            </div>
+            <div class="action-row">
+              <button class="btn primary sm" type="button" id="connectBtn">Connect</button>
+              <button class="btn ghost sm" type="button" id="rescanBtn">Scan again</button>
+            </div>
+          </div>
+
+          <label class="check"><input type="checkbox" id="ont_disable" checked> Disable the ONT's own SIP when the proxy takes over (recommended — it registers the same line)</label>
+        </div>
+      </section>
+
+      <!-- 2 Identity -->
+      <section class="step" data-title="Identity" data-validate="identity" hidden>
+        <p class="eyebrow">Confirm · or fill in</p>
+        <h2>Device identity</h2>
+        <p class="sub" id="idSub">If discovery worked, these are already handled — leave them blank and the proxy reads them live each run. Fill them only to override, or if you skipped the ONT step.</p>
+        <div class="body">
+          <div class="field wide">
+            <label for="serial"><span class="name">ONT serial</span><span class="env">DEVICE_SERIAL</span></label>
+            <input type="text" id="serial" placeholder="read from ONT — or type RSVXXXXXXXXXX" spellcheck="false">
+          </div>
+          <div class="field wide">
+            <label for="tr069"><span class="name">TR-069 password</span><span class="env">TR069_PASSWORD</span></label>
+            <input type="password" id="tr069" placeholder="read from ONT — or paste it here" spellcheck="false">
+            <span class="hint">Without the ONT: from a config backup — <code>openssl aes-128-cbc -d -md sha256 -pass pass:"BE F2 …" -in backup.enc</code> then <code>grep ManagementServer.Password</code>.</span>
+          </div>
+          <div class="field wide">
+            <label for="msisdn"><span class="name">Phone number</span><span class="env">DEVICE_MSISDN</span></label>
+            <input type="text" id="msisdn" placeholder="+9199XXXXXXXX  (optional — auto-discovered from the ACS)" spellcheck="false">
+          </div>
+        </div>
+      </section>
+
+      <!-- 3 Line addresses -->
+      <section class="step" data-title="Line addresses" hidden>
+        <p class="eyebrow">Recommended</p>
+        <h2>Where the proxy sources traffic</h2>
+        <p class="sub">These belong to <b>the host running the proxy</b>, not the ONT — use an address the host holds inside your line's <code>/64</code>. (In AP/bridge setups the ONT's own prefix can differ.)</p>
+        <div class="body">
+          <div class="callout" id="prefixHint" hidden></div>
+          <div class="grid2">
+            <div class="field wide">
+              <label for="ccs6"><span class="name">Source IPv6 — CCS</span><span class="env">CCS_SOURCE_IPV6</span></label>
+              <input type="text" id="ccs6" placeholder="2405:xxxx:yyyy::1" spellcheck="false">
+            </div>
+            <div class="field">
+              <label for="acs4"><span class="name">Source IPv4 — ACS</span><span class="env">ACS_SOURCE_IPV4</span></label>
+              <input type="text" id="acs4" placeholder="192.168.0.4" spellcheck="false">
+            </div>
+            <div class="field">
+              <label for="sip6"><span class="name">Source IPv6 — IMS SIP</span><span class="env">SIP_SOURCE_IPV6</span></label>
+              <input type="text" id="sip6" placeholder="2405:xxxx:yyyy::1" spellcheck="false">
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 4 Phone side -->
+      <section class="step" data-title="Phone side" hidden>
+        <p class="eyebrow">Local side</p>
+        <h2>Where your phone connects</h2>
+        <p class="sub">Point your handset at the advertise IP and SIP port, codec <b>PCMU</b> first. Any REGISTER is accepted with 200 OK.</p>
+        <div class="body">
+          <div class="grid2">
+            <div class="field"><label for="bind"><span class="name">Bind address</span><span class="env">LOCAL_BIND</span></label><input type="text" id="bind" value="0.0.0.0" spellcheck="false"></div>
+            <div class="field"><label for="advertise"><span class="name">Advertise IP</span><span class="env">LOCAL_ADVERTISE_IP</span></label><input type="text" id="advertise" placeholder="192.168.1.10" spellcheck="false"></div>
+            <div class="field"><label for="lport"><span class="name">SIP port</span><span class="env">LOCAL_PORT</span></label><input type="text" id="lport" value="5061" spellcheck="false"></div>
+            <div class="field"><label for="rtp"><span class="name">RTP port</span><span class="env">RTP_PORT</span></label><input type="text" id="rtp" value="52000" spellcheck="false"></div>
+            <div class="field wide"><label for="dest"><span class="name">Inbound destination</span><span class="env">DEST_TO_LOCAL</span></label><input type="text" id="dest" placeholder="sip:1001@192.168.1.10:5060  (optional)" spellcheck="false"><span class="hint">Your phone's SIP address, so incoming calls reach it. Without it, outbound only.</span></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 5 Advanced -->
+      <section class="step" data-title="Advanced" hidden>
+        <p class="eyebrow">Optional · skip if unsure</p>
+        <h2>Advanced overrides</h2>
+        <p class="sub">Sensible defaults are already in place. Touch these only if you have a reason.</p>
+        <div class="body">
+          <div class="grid2">
+            <div class="field"><label for="model"><span class="name">Device model</span><span class="env">DEVICE_MODEL</span></label><input type="text" id="model" placeholder="JCOW414 (or from ONT)" spellcheck="false"></div>
+            <div class="field"><label for="swver"><span class="name">Software version</span><span class="env">DEVICE_SW_VER</span></label><input type="text" id="swver" value="R2.57" spellcheck="false"></div>
+            <div class="field wide"><label for="token"><span class="name">Device token override</span><span class="env">DEVICE_TOKEN</span></label><input type="text" id="token" placeholder="normally leave blank — derived from serial" spellcheck="false"></div>
+          </div>
+          <label class="check"><input type="checkbox" id="tls_insecure"> Skip IMS TLS cert validation <code>TLS_INSECURE=1</code></label>
+          <label class="check"><input type="checkbox" id="sip_debug"> Log outgoing REGISTER messages <code>SIP_DEBUG_REGISTER=1</code></label>
+        </div>
+      </section>
+
+      <!-- 6 Review -->
+      <section class="step" data-title="Review" hidden>
+        <p class="eyebrow">Last step</p>
+        <h2 id="reviewHead">Review &amp; save</h2>
+        <p class="sub" id="reviewSub">Here's your config. Copy it into a file named <code>sip.env</code> next to your deployment.</p>
+        <div class="body">
+          <div class="terminal">
+            <div class="term-head"><span class="lights"><i class="l1"></i><i class="l2"></i><i class="l3"></i></span><span class="fname">sip.env</span><span class="status ok" id="status">ready</span></div>
+            <pre class="term-body" id="envOut" aria-live="polite"></pre>
+          </div>
+          <div id="applyMsg" hidden></div>
+          <details class="acc"><summary>Run it <span class="chev">›</span></summary><div class="acc-body">
+            <div class="codeblock" data-copy="docker build --platform linux/amd64 -t jiofiber-sip-proxy .
+docker run --rm --network host --env-file ./sip.env jiofiber-sip-proxy"><button class="copy-sm" type="button" data-copytrigger>Copy</button><pre><span class="c"># build + run (amd64; use Dockerfile.arm64 for ARM)</span>
+docker build --platform linux/amd64 -t jiofiber-sip-proxy .
+docker run --rm --network host --env-file ./sip.env jiofiber-sip-proxy</pre></div>
+            <p><code>--network host</code> lets the container source traffic from your line's real addresses. You should see <code>Registered with upstream SIP proxy</code> on success.</p>
+          </div></details>
+          <details class="acc"><summary>Point your phone <span class="chev">›</span></summary><div class="acc-body">
+            <ul class="clean"><li><b>SIP server / proxy:</b> the advertise IP + SIP port, transport <b>UDP</b>.</li><li><b>Codec:</b> PCMU (G.711 µ-law) first.</li><li><b>Login:</b> any username/password works.</li></ul>
+            Ten-digit Indian numbers are rewritten to <code>+91</code> automatically.
+          </div></details>
+          <details class="acc"><summary>Troubleshooting <span class="chev">›</span></summary><div class="acc-body">
+            <ul class="clean"><li><b>CCS request failed / reset:</b> source address not in your <code>/64</code>, or Jio throttling — wait and retry.</li><li><b>Provisioning fails:</b> re-check serial / TR-069 password, or that the ONT is reachable.</li><li><b>No / one-way audio:</b> set the phone to PCMU; advertise IP reachable; RTP not firewalled.</li><li><b>Phone registers, ONT line drops:</b> expected — last writer wins. Keep "disable the ONT's SIP" on.</li></ul>
+          </div></details>
+        </div>
+      </section>
+
+    </div>
+
+    <div class="nav">
+      <button class="btn ghost" type="button" id="backBtn">← Back</button>
+      <span class="spacer"></span>
+      <button class="btn primary" type="button" id="nextBtn">Next →</button>
+    </div>
+  </form>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+(function () {
+  "use strict";
+  var $ = function (id) { return document.getElementById(id); };
+  var ADMIN_TOKEN = (typeof window.__ADMIN_TOKEN__ !== "undefined") ? window.__ADMIN_TOKEN__ : null;
+  var SERVED = false, discovered = false;
+
+  function authHeaders(extra) { var h = extra || {}; if (ADMIN_TOKEN) h["Authorization"] = "Bearer " + ADMIN_TOKEN; return h; }
+
+  /* theme */
+  try { var sv = localStorage.getItem("jsp-theme"); if (sv === "dark" || sv === "light") document.documentElement.setAttribute("data-theme", sv); } catch (e) {}
+  $("themeBtn").addEventListener("click", function () {
+    var r = document.documentElement, cur = r.getAttribute("data-theme");
+    if (!cur) cur = window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+    var n = cur === "dark" ? "light" : "dark"; r.setAttribute("data-theme", n);
+    try { localStorage.setItem("jsp-theme", n); } catch (e) {}
+  });
+
+  /* toast + clipboard */
+  var toastEl = $("toast"), tT;
+  function toast(m) { toastEl.textContent = m; toastEl.classList.add("show"); clearTimeout(tT); tT = setTimeout(function () { toastEl.classList.remove("show"); }, 1800); }
+  function copyText(t, ok) { var d = function () { toast(ok || "Copied"); }; if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(t).then(d, function () { legacy(t, d); }); else legacy(t, d); }
+  function legacy(t, d) { try { var a = document.createElement("textarea"); a.value = t; a.style.position = "fixed"; a.style.opacity = "0"; document.body.appendChild(a); a.select(); document.execCommand("copy"); document.body.removeChild(a); d(); } catch (e) { toast("Press ⌘/Ctrl-C to copy"); } }
+
+  function v(id) { var e = $(id); return e ? e.value.trim() : ""; }
+  function esc(s) { return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;"); }
+
+  /* env model: ONT-first. Identity lines appear only when typed (overrides); otherwise the
+     proxy discovers them from the ONT at runtime. */
+  function groups() {
+    var g = [];
+    var id = [];
+    if (v("serial")) id.push("DEVICE_SERIAL=" + v("serial"));
+    if (v("tr069")) id.push("TR069_PASSWORD=" + v("tr069"));
+    if (v("msisdn")) id.push("DEVICE_MSISDN=" + v("msisdn"));
+    if (id.length) g.push(["Device identity (overrides what the ONT reports)", id]);
+
+    if (v("ont_host")) {
+      var o = ["ONT_HOST=" + v("ont_host")];
+      if (v("ont_pass")) o.push("ONT_TELNET_PASSWORD=" + v("ont_pass"));
+      if (v("ont_user")) o.push("ONT_TELNET_USER=" + v("ont_user"));
+      if (v("ont_port") && v("ont_port") !== "23") o.push("ONT_TELNET_PORT=" + v("ont_port"));
+      if (!$("ont_disable").checked) o.push("ONT_DISABLE_VOICE=0");
+      g.push(["Your ONT — read config over telnet, disable its SIP", o]);
+    }
+    var src = [];
+    if (v("ccs6")) src.push("CCS_SOURCE_IPV6=" + v("ccs6"));
+    if (v("acs4")) src.push("ACS_SOURCE_IPV4=" + v("acs4"));
+    if (v("sip6")) src.push("SIP_SOURCE_IPV6=" + v("sip6"));
+    if (src.length) g.push(["Source addresses on the host's Jio line", src]);
+    var loc = [];
+    if (v("bind")) loc.push("LOCAL_BIND=" + v("bind"));
+    if (v("advertise")) loc.push("LOCAL_ADVERTISE_IP=" + v("advertise"));
+    if (v("lport") && v("lport") !== "5061") loc.push("LOCAL_PORT=" + v("lport"));
+    if (v("rtp") && v("rtp") !== "52000") loc.push("RTP_PORT=" + v("rtp"));
+    if (v("dest")) loc.push("DEST_TO_LOCAL=" + v("dest"));
+    if (loc.length) g.push(["Local side (where your phone connects)", loc]);
+    var adv = [];
+    if (v("model")) adv.push("DEVICE_MODEL=" + v("model"));
+    if (v("swver") && v("swver") !== "R2.57") adv.push("DEVICE_SW_VER=" + v("swver"));
+    if (v("token")) adv.push("DEVICE_TOKEN=" + v("token"));
+    if ($("tls_insecure").checked) adv.push("TLS_INSECURE=1");
+    if ($("sip_debug").checked) adv.push("SIP_DEBUG_REGISTER=1");
+    if (adv.length) g.push(["Advanced", adv]);
+    return g;
+  }
+  function envText() { var o = ["# JioFiber SIP proxy config — keep this file private (it holds secrets)."]; groups().forEach(function (gr) { o.push("", "# " + gr[0]); gr[1].forEach(function (l) { o.push(l); }); }); return o.join("\n") + "\n"; }
+  function envHtml() { var h = ['<span class="c"># JioFiber SIP proxy config — keep this file private (it holds secrets).</span>']; groups().forEach(function (gr) { h.push('<span class="blank"></span>', '<span class="c"># ' + esc(gr[0]) + "</span>"); gr[1].forEach(function (l) { var i = l.indexOf("="); h.push('<span class="k">' + esc(l.slice(0, i)) + "</span>=" + esc(l.slice(i + 1))); }); }); return h.join("\n"); }
+
+  /* config is valid when the proxy can get a serial+password: either typed, or an ONT to read them from */
+  function configReady() { return (!!v("ont_host")) || (!!v("serial") && !!v("tr069")); }
+
+  function missingOn(step) {
+    if (step === "ont") { // if host given, password is needed
+      $("ont_pass").classList.remove("missing"); return 0; // password optional — defaults are tried
+    }
+    if (step === "identity") {
+      if (configReady()) { $("serial").classList.remove("missing"); $("tr069").classList.remove("missing"); return 0; }
+      var m = 0; ["serial", "tr069"].forEach(function (x) { var e = $(x), empty = !e.value.trim(); e.classList.toggle("missing", empty); if (empty) m++; }); return m;
+    }
+    return 0;
+  }
+  function refreshStatus() { var s = $("status"); if (configReady()) { s.className = "status ok"; s.textContent = "ready"; } else { s.className = "status warn"; s.textContent = "needs ONT or serial+password"; } }
+
+  /* carousel */
+  var steps = Array.prototype.slice.call(document.querySelectorAll(".step"));
+  var titles = steps.map(function (s) { return s.getAttribute("data-title"); });
+  var i = 0, maxReached = 0;
+  var dotsEl = $("dots");
+  steps.forEach(function (_, idx) { var b = document.createElement("button"); b.type = "button"; b.setAttribute("aria-label", "Step " + (idx + 1)); b.addEventListener("click", function () { if (idx <= maxReached) go(idx); }); dotsEl.appendChild(b); });
+
+  function show(idx, dir) {
+    steps.forEach(function (s, k) { s.hidden = k !== idx; if (k === idx) s.setAttribute("data-dir", dir || "fwd"); });
+    $("stepN").textContent = "Step " + (idx + 1) + " of " + steps.length;
+    $("stepT").textContent = titles[idx];
+    $("fill").style.width = (idx / (steps.length - 1) * 100) + "%";
+    Array.prototype.forEach.call(dotsEl.children, function (d, k) { d.classList.toggle("active", k === idx); d.classList.toggle("done", k < idx); d.disabled = k > maxReached; });
+    $("backBtn").style.visibility = idx === 0 ? "hidden" : "visible";
+    var last = idx === steps.length - 1;
+    $("nextBtn").textContent = last ? (SERVED ? "Apply & restart" : "Copy sip.env") : (idx === 0 ? "Start →" : "Next →");
+    if (last) { $("envOut").innerHTML = envHtml(); refreshStatus(); }
+    if (titles[idx] === "Your ONT" && !ontEntered) enterOntStep();
+    var inp = steps[idx].querySelector("input:not([type=checkbox])");
+    if (inp && idx !== 0) setTimeout(function () { try { inp.focus({ preventScroll: true }); } catch (e) {} }, 60);
+  }
+  function go(idx, dir) { i = idx; maxReached = Math.max(maxReached, i); show(i, dir); window.scrollTo({ top: 0, behavior: "smooth" }); }
+  function next() { var gate = steps[i].getAttribute("data-validate"); if (gate && missingOn(gate) > 0) { toast(gate === "ont" ? "Enter the ONT password" : "Enter a serial + TR-069 password, or go back and connect the ONT"); return; } if (i < steps.length - 1) go(i + 1, "fwd"); else finish(); }
+  function back() { if (i > 0) go(i - 1, "back"); }
+  $("nextBtn").addEventListener("click", next);
+  $("backBtn").addEventListener("click", back);
+  document.addEventListener("keydown", function (e) { var t = e.target.tagName; if (t === "INPUT" || t === "TEXTAREA") return; if (e.key === "ArrowRight") next(); if (e.key === "ArrowLeft") back(); });
+  $("cfg").addEventListener("input", function () { if (i === steps.length - 1) { $("envOut").innerHTML = envHtml(); refreshStatus(); } });
+  document.querySelectorAll("[data-copytrigger]").forEach(function (btn) { btn.addEventListener("click", function () { var b = btn.closest(".codeblock"); copyText(b ? b.getAttribute("data-copy") : "", "Copied"); }); });
+
+  /* discovery */
+  function ontEnvText() {
+    var o = ["ONT_HOST=" + v("ont_host"), "ONT_TELNET_PASSWORD=" + v("ont_pass")];
+    if (v("ont_user")) o.push("ONT_TELNET_USER=" + v("ont_user"));
+    if (v("ont_port")) o.push("ONT_TELNET_PORT=" + v("ont_port"));
+    return o.join("\n") + "\n";
+  }
+  function parseKV(text) { var m = {}; String(text).split("\n").forEach(function (l) { var i = l.indexOf("="); if (i > 0) m[l.slice(0, i).trim()] = l.slice(i + 1).trim(); }); return m; }
+  function renderFound(kv) {
+    var f = $("found"); f.hidden = false;
+    function row(ok, lab, val) { return '<div class="row ' + (ok ? "ok" : "no") + '"><span class="ic">' + (ok ? "✓" : "–") + '</span><span class="lab">' + lab + '</span>' + (val ? '<span class="val">' + esc(val) + "</span>" : "") + "</div>"; }
+    if (kv.ONT_HOST) $("ont_host").value = kv.ONT_HOST;
+    var html = "";
+    if (kv.ONT_HOST) html += row(true, "ONT address", kv.ONT_HOST);
+    if (kv.auth_user) html += row(true, "Signed in as", kv.auth_user);
+    html += row(!!kv.DEVICE_SERIAL, "Serial", kv.DEVICE_SERIAL || "not found");
+    if (kv.DEVICE_MODEL) html += row(true, "Model", kv.DEVICE_MODEL);
+    html += row(kv.tr069_found === "yes", "TR-069 password", kv.tr069_found === "yes" ? "read ✓" : "not found");
+    if (kv.host_prefix64) html += row(true, "Host line /64", kv.host_prefix64);
+    f.innerHTML = html;
+    if (kv.DEVICE_SERIAL) $("serial").placeholder = kv.DEVICE_SERIAL + "  (from ONT — leave blank to use it)";
+    if (kv.DEVICE_MODEL) $("model").placeholder = kv.DEVICE_MODEL + "  (from ONT)";
+    if (kv.tr069_found === "yes") $("tr069").placeholder = "read from ONT ✓  (leave blank to use it)";
+    if (kv.host_prefix64) { var ph = $("prefixHint"); ph.hidden = false; ph.innerHTML = "<b>Host line prefix " + esc(kv.host_prefix64) + "</b> — set the source IPv6 to an address this host holds inside it."; }
+    discovered = kv.tr069_found === "yes" && !!kv.DEVICE_SERIAL;
+  }
+  var PREVIEW_NOTE = "Preview mode — the running proxy scans your LAN to find the ONT. Here you can enter its address; apply happens once the proxy serves this page.";
+
+  function scanUI(mode, msg) {
+    var s = $("scanStatus");
+    if (mode === "scanning") {
+      $("found").hidden = true; $("manual").hidden = true;
+      s.hidden = false;
+      s.innerHTML = '<div class="row"><span class="spin"></span><span class="lab">Scanning your network for the ONT…</span></div>';
+    } else if (mode === "found") {
+      s.hidden = false;
+      s.innerHTML = '<div class="row ok"><span class="ic">✓</span><span class="lab">Found your ONT and read it.</span><button type="button" class="linklike" id="toManual">wrong device?</button></div>';
+      $("manual").hidden = true;
+      var tm = $("toManual"); if (tm) tm.addEventListener("click", function () { $("manualNote").textContent = "Point the proxy at a specific ONT address instead."; $("manual").hidden = false; });
+    } else if (mode === "manual") {
+      if (msg) { s.hidden = false; s.innerHTML = '<div class="row no"><span class="ic">–</span><span class="lab">' + esc(msg) + "</span></div>"; } else { s.hidden = true; }
+      $("manualNote").textContent = msg || "Enter the ONT's address. Leave the password blank to try the known default; make sure telnet is enabled on it (web admin · superadmin) if needed.";
+      $("manual").hidden = false;
+    }
+  }
+
+  function runScan() {
+    if (!SERVED) { scanUI("manual", PREVIEW_NOTE); return; }
+    scanUI("scanning");
+    fetch("api/scan", { headers: authHeaders() })
+      .then(function (r) { return r.text().then(function (t) { if (!r.ok) throw new Error(t || ("HTTP " + r.status)); return t; }); })
+      .then(function (t) {
+        var kv = parseKV(t);
+        if (kv.ok === "yes" && kv.ONT_HOST) { renderFound(kv); scanUI("found"); toast("Found ONT at " + kv.ONT_HOST); }
+        else { scanUI("manual", "Couldn't find the ONT automatically. Enter its address below, or enable telnet on it (web admin · superadmin) and scan again."); }
+      })
+      .catch(function (e) { scanUI("manual", "Scan failed: " + e.message + ". Enter the ONT's address below."); });
+  }
+
+  function connect() {
+    if (!v("ont_host")) { toast("Enter the ONT address first"); return; }
+    if (!SERVED) { toast("Saved — the running proxy will read it at startup"); return; }
+    var btn = $("connectBtn"); btn.disabled = true; var prev = btn.textContent; btn.innerHTML = '<span class="spin"></span> Reading…';
+    fetch("api/discover", { method: "POST", headers: authHeaders({ "Content-Type": "text/plain" }), body: ontEnvText() })
+      .then(function (r) { return r.text().then(function (t) { if (!r.ok) throw new Error(t || ("HTTP " + r.status)); return t; }); })
+      .then(function (t) { var kv = parseKV(t); if (kv.ok === "no") { $("manualNote").textContent = "Could not read the ONT: " + (kv.error || "login failed") + ". Check the address, the password, and that telnet is enabled."; } else { kv.ONT_HOST = v("ont_host"); renderFound(kv); scanUI("found"); toast("Read from ONT"); } })
+      .catch(function (e) { $("manualNote").textContent = e.message; })
+      .finally(function () { btn.disabled = false; btn.textContent = prev; });
+  }
+
+  $("connectBtn").addEventListener("click", connect);
+  $("rescanBtn").addEventListener("click", runScan);
+
+  var ontEntered = false;
+  function enterOntStep() {
+    ontEntered = true;
+    if (!SERVED) { scanUI("manual", PREVIEW_NOTE); return; }
+    if (v("ont_host")) { scanUI("manual", ""); return; } // already configured — show the fields, don't rescan
+    runScan();
+  }
+
+  /* finish */
+  function finish() {
+    if (!configReady()) { toast("Add an ONT, or a serial + TR-069 password"); return; }
+    if (!SERVED) { copyText(envText(), "sip.env copied — save it as sip.env"); return; }
+    var btn = $("nextBtn"); btn.disabled = true; btn.innerHTML = '<span class="spin"></span> Applying…';
+    fetch("api/apply", { method: "POST", headers: authHeaders({ "Content-Type": "text/plain" }), body: envText() })
+      .then(function (r) { return r.text().then(function (t) { if (!r.ok) throw new Error(t || ("HTTP " + r.status)); return t; }); })
+      .then(function () { var m = $("applyMsg"); m.hidden = false; m.innerHTML = '<p class="callout"><b>Applied.</b> The proxy is restarting with the new config — it re-provisions and re-registers to IMS in a few seconds.</p>'; btn.textContent = "Applied ✓"; })
+      .catch(function (e) { var m = $("applyMsg"); m.hidden = false; m.innerHTML = '<p class="callout warn"><b>Could not apply:</b> ' + esc(e.message) + ". Copy the config above and apply it by hand."; btn.disabled = false; btn.textContent = "Retry"; });
+  }
+
+  /* served detection + prefill */
+  var ENVMAP = { DEVICE_SERIAL: "serial", TR069_PASSWORD: "tr069", DEVICE_MSISDN: "msisdn", CCS_SOURCE_IPV6: "ccs6", ACS_SOURCE_IPV4: "acs4", SIP_SOURCE_IPV6: "sip6", LOCAL_BIND: "bind", LOCAL_ADVERTISE_IP: "advertise", LOCAL_PORT: "lport", RTP_PORT: "rtp", DEST_TO_LOCAL: "dest", DEVICE_MODEL: "model", DEVICE_SW_VER: "swver", DEVICE_TOKEN: "token", ONT_HOST: "ont_host", ONT_TELNET_PASSWORD: "ont_pass", ONT_TELNET_USER: "ont_user", ONT_TELNET_PORT: "ont_port" };
+  function prefill(text) {
+    var kv = parseKV(text.replace(/^#.*$/gm, ""));
+    Object.keys(kv).forEach(function (k) { var id = ENVMAP[k]; if (id && $(id)) $(id).value = kv[k]; });
+    if (kv.ONT_DISABLE_VOICE === "0") $("ont_disable").checked = false;
+    if (kv.TLS_INSECURE === "1") $("tls_insecure").checked = true;
+    if (kv.SIP_DEBUG_REGISTER === "1") $("sip_debug").checked = true;
+  }
+  fetch("api/config", { headers: authHeaders() }).then(function (r) { if (!r.ok) throw 0; return r.text(); }).then(function (text) {
+    SERVED = true; $("modeTag").textContent = "Live"; $("modeNote").textContent = "Served by your proxy — changes apply directly, no copy-paste.";
+    prefill(text);
+    if (titles[i] === "Your ONT") { ontEntered = false; enterOntStep(); }
+    if (i === steps.length - 1) { $("nextBtn").textContent = "Apply & restart"; $("envOut").innerHTML = envHtml(); }
+  }).catch(function () { /* preview mode */ });
+
+  show(0);
+})();
+</script>

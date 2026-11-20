@@ -1,0 +1,10 @@
+/target
+
+# Never commit credential/profile files — these hold device PII and SIP secrets
+*.env
+sip.env
+.env
+
+# Python bytecode from the reference scripts
+__pycache__/
+*.pyc
