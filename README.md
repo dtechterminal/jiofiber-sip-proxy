@@ -133,37 +133,41 @@ Put the value in `TR069_PASSWORD`.
 
 ## Step 1 — Create your env file
 
-Save this as `sip.env`. **Never commit it** — it holds secrets (`.gitignore`
-already excludes `*.env`).
+Save this as `sip.env`. **Never commit it** — it holds secrets and PII (`.gitignore`
+already excludes `*.env`). The device identity is **not** required here when the proxy can
+read it off your ONT (set `ONT_HOST`); supply it by hand only when it can't.
 
 ```sh
-# Device identity for provisioning (both required).
-DEVICE_SERIAL=RSV...
-TR069_PASSWORD=...
-# DEVICE_MSISDN is optional — discovered from the ACS when omitted:
+# ── Device identity ───────────────────────────────────────────────
+# Leave UNSET to have the proxy read them off the ONT over telnet (set
+# ONT_HOST below). Supply by hand only when it can't — a non-Jio gateway,
+# or telnet disabled. When set, these override what the ONT reports.
+# DEVICE_SERIAL=RSV...
+# TR069_PASSWORD=...
+# DEVICE_MSISDN is always optional — discovered from the ACS when omitted:
 # DEVICE_MSISDN=+9199XXXXXXXX
 
-# Optional: disable the ONT's own SIP so it does not fight us for the registration.
-# Leave ONT_HOST unset to skip. See "Taking over the line".
-# ONT_HOST=192.168.0.51
-# ONT_TELNET_PASSWORD=...
+# ── ONT access (the easy path) ────────────────────────────────────
+# Point at your ONT: the proxy reads the serial + TR-069 password off it
+# and disables its own SIP. Don't know the address? Set ADMIN_BIND and let
+# the setup wizard scan the LAN to find it. Leave ONT_HOST unset to skip.
+ONT_HOST=192.168.0.51
+# ONT_TELNET_PASSWORD=...   # only if the ONT's telnet password was changed
 
-# Source addresses on your Jio line
+# ── Source addresses on your Jio line (host-side; always needed) ──
 CCS_SOURCE_IPV6=2405:...:1
 ACS_SOURCE_IPV4=192.168.0.4
 SIP_SOURCE_IPV6=2405:...:1
 
-# Local side (where your phone connects)
+# ── Local side (where your phone connects) ────────────────────────
 LOCAL_BIND=0.0.0.0
 LOCAL_ADVERTISE_IP=192.168.1.10
 ```
 
+**Set `ONT_HOST` _or_ uncomment `DEVICE_SERIAL` + `TR069_PASSWORD` — you don't need both.**
 Placeholders (`...`, `XXX`) stand in for your values; each variable's meaning is in the
 [configuration reference](#configuration-reference). Keep comments on their own lines —
 `docker --env-file` treats an inline `#` as part of the value.
-
-See the [full configuration reference](#configuration-reference) for every variable and
-its default.
 
 ---
 
